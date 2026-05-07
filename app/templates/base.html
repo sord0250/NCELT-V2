@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>NCELT</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+    </head>
+    <body>
+        <div class="app-shell">
+            <aside class="sidebar">
+                <div class="brand-block">
+                    <p class="eyebrow">Evidence Tracking</p>
+                    <h1>NCELT</h1>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <a href="/">Evidence Dashboard</a>
+                    <a href="/framework">Framework Dashboard</a>
+                    <a href="/upload">Upload Evidence</a>
+                    <a href="/owners/new">Create Owner</a>
+                    {% if current_user and current_user.is_manager %}
+                    <a href="/users/new">Create User</a>
+                    {% endif %}
+                </nav>
+
+                <div class="sidebar-footer">
+                    {% if current_user %}
+                    <p class="user-label">Logged in as</p>
+                    <p class="username">{{ current_user.username }}</p>
+                    <a class="logout-link" href="/logout">Logout</a>
+                    {% else %}
+                    <a class="logout-link" href="/login">Login</a>
+                    {% endif %}
+                </div>
+            </aside>
+
+            <main class="page-content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </body>
+</html>

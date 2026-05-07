@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard-page">
+    <div class="page-header">
+      <div>
+        <p class="section-tag">Overview</p>
+        <h2>Evidence Dashboard</h2>
+      </div>
+      <a class="primary-link" href="/upload">Upload new evidence</a>
+    </div>
+
+    <form class="filter-bar" method="get" action="/">
+      <label>
+        Review status
+        <select name="review_status">
+          <option value="all" {% if selected_review_status == 'all' %}selected{% endif %}>All</option>
+          <option value="red" {% if selected_review_status == 'red' %}selected{% endif %}>Red</option>
+          <option value="yellow" {% if selected_review_status == 'yellow' %}selected{% endif %}>Yellow</option>
+          <option value="green" {% if selected_review_status == 'green' %}selected{% endif %}>Green</option>
+        </select>
+      </label>
+
+      <label>
+        Owner
+        <select name="owner_id">
+          <option value="">All owners</option>
+          {% for owner in owners %}
+            <option value="{{ owner.owner_id }}" {% if selected_owner_id == owner.owner_id %}selected{% endif %}>{{ owner.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button type="submit">Apply</button>
+        <a class="filter-reset" href="/">Reset</a>
+      </div>
+    </form>
+
+    {% if evidence %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Owner</th>
+            <th>Outcomes</th>
+            <th class="last-review-col">Last review</th>
+            <th class="next-review-col">Next review</th>
+            <th>Evidence Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in evidence %}
+          <tr>
+            <td><a class="detail-link" href="{{ url_for('evidence_detail', evidence_id=e.evidence_id) }}">{{ e.title }}</a></td>
+            <td>{{ e.owner.name }}</td>
+            <td>
+              {% for o in e.outcomes %}
+                {{ o.subcat_id }}{% if not loop.last %}, {% endif %}
+              {% endfor %}
+            </td>
+            <td>
+              {% if e.last_reviewed_at %}
+                <span class="date-cell">{{ e.last_reviewed_at.strftime('%Y-%m-%d') }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% set dt = e.last_reviewed_at if e.last_reviewed_at else e.uploaded_at %}
+              {% if dt and e.lifecycle_length is not none %}
+                {% set next_review = dt + timedelta(days=e.lifecycle_length) %}
+                {% set review_class = 'review-pill--safe' %}
+                {% if e.review_status == 'red' %}
+                  {% set review_class = 'review-pill--urgent' %}
+                {% elif e.review_status == 'yellow' %}
+                  {% set review_class = 'review-pill--warning' %}
+                {% endif %}
+                <span class="review-pill {{ review_class }}">{{ next_review.strftime('%Y-%m-%d') }}</span>
+              {% endif %}
+            </td>
+            <td><a href="{{ url_for('evidence_file', filename=e.file_path) }}">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p>No evidence uploaded yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

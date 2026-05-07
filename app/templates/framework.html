@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard-page">
+    <div class="page-header">
+      <div>
+        <p class="section-tag">Framework</p>
+        <h2>Framework Dashboard</h2>
+      </div>
+      <a class="primary-link" href="/upload">Upload new evidence</a>
+    </div>
+
+    <form class="filter-bar" method="get" action="/framework">
+      <label>
+        Review status
+        <select name="review_status">
+          <option value="all" {% if selected_review_status == 'all' %}selected{% endif %}>All</option>
+          <option value="red" {% if selected_review_status == 'red' %}selected{% endif %}>Red</option>
+          <option value="yellow" {% if selected_review_status == 'yellow' %}selected{% endif %}>Yellow</option>
+          <option value="green" {% if selected_review_status == 'green' %}selected{% endif %}>Green</option>
+        </select>
+      </label>
+
+      <label>
+        Evidence
+        <select name="evidence_presence">
+          <option value="all" {% if selected_evidence_presence == 'all' %}selected{% endif %}>All</option>
+          <option value="missing" {% if selected_evidence_presence == 'missing' %}selected{% endif %}>Missing evidence</option>
+          <option value="present" {% if selected_evidence_presence == 'present' %}selected{% endif %}>Present evidence</option>
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button type="submit">Apply</button>
+        <a class="filter-reset" href="/framework">Reset</a>
+      </div>
+    </form>
+
+    {% if outcomes %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Function</th>
+            <th>Category</th>
+            <th>Subcategory ID</th>
+            <th>Outcome</th>
+            <th>Evidence Name</th>
+            <th class="next-review-col">Next Review</th>
+            <th>Evidence Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in outcomes %}
+          <tr>
+            <td>{{ o.function }}</td>
+            <td>{{ o.category }}</td>
+            <td>{{ o.subcat_id }}</td>
+            <td>{{ o.summary }}</td>
+            <td>
+              {% if o.latest_evidence %}
+                <a class="detail-link" href="{{ url_for('evidence_detail', evidence_id=o.latest_evidence.evidence_id) }}">{{ o.latest_evidence.title }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if o.latest_evidence and o.latest_evidence.lifecycle_length is not none and o.last_review_dt %}
+                {% set next_review = o.last_review_dt + timedelta(days=o.latest_evidence.lifecycle_length) %}
+                {% set review_class = 'review-pill--safe' %}
+                {% if o.review_status == 'red' %}
+                  {% set review_class = 'review-pill--urgent' %}
+                {% elif o.review_status == 'yellow' %}
+                  {% set review_class = 'review-pill--warning' %}
+                {% endif %}
+                <span class="review-pill {{ review_class }}">{{ next_review.strftime('%Y-%m-%d') }}</span>
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+            <td>
+              {% if o.latest_evidence and o.latest_evidence.file_path %}
+                <a href="{{ url_for('evidence_file', filename=o.latest_evidence.file_path) }}">View</a>
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p>No outcomes configured yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

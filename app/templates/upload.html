@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard-page form-page">
+    <div class="page-header">
+      <div>
+        <p class="section-tag">Evidence</p>
+        <h2>Upload Evidence</h2>
+      </div>
+    </div>
+
+    {% if not owners %}
+      <p>No owners exist yet. <a href="/owners/new">Create an owner first</a>.</p>
+    {% endif %}
+
+    <div class="form-card">
+      <form action="/upload" method="post" enctype="multipart/form-data">
+        <label>
+          Title<br>
+          <input type="text" name="title" required>
+        </label>
+        <br><br>
+
+        <label>
+          Description<br>
+          <textarea name="description" rows="3"></textarea>
+        </label>
+        <br><br>
+
+        <label>
+          Owner<br>
+          <select name="owner_id" required>
+            <option value="">-- choose owner --</option>
+            {% for owner in owners %}
+              <option value="{{ owner.owner_id }}">{{ owner.name }} ({{ owner.email }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <br><br>
+
+        <label>
+          Outcomes (Ctrl/Cmd+Click for multiple)<br>
+          <select name="outcome_ids" multiple size="8">
+            {% for o in outcomes %}
+              <option value="{{ o.subcat_id }}">{{ o.subcat_id }} — {{ o.summary }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <br><br>
+
+        <label>
+          Last Reviewed Date <br>
+          <input type="date" name="last_reviewed_date" required>
+        </label>
+        <br><br>
+
+        <label>
+          Lifecycle Length (Months)<br>
+          <input type="number" name="lifecycle_months" min="1" value="3" required>
+        </label>
+        <br><br>
+
+        <label>
+          File<br>
+          <input type="file" name="file" required>
+        </label>
+        <br><br>
+
+        <button type="submit">Upload</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}

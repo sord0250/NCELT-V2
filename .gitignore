@@ -1,0 +1,28 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local environment/secrets
+.env
+.env.*
+!.env.example
+
+# Local databases and SQLite sidecar files
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.bak
+
+# Uploaded/generated app data
+data/evidence/*
+data/outbox/*
+
+# Local editor settings
+.vscode/

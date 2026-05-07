@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard-page form-page">
+    <div class="page-header">
+      <div>
+        <p class="section-tag">Users</p>
+        <h2>Create User (Manager Only)</h2>
+      </div>
+    </div>
+
+    {% if error %}
+      <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    <div class="form-card">
+      <form action="/users/new" method="post">
+        <label>
+          Username<br>
+          <input type="text" name="username" required>
+        </label>
+        <br><br>
+
+        <label>
+          Password (min 8 chars)<br>
+          <input type="password" name="password" minlength="8" required>
+        </label>
+        <br><br>
+
+        <label>
+          <input type="checkbox" name="is_manager" value="true">
+          Manager account
+        </label>
+        <br><br>
+
+        <button type="submit">Create user</button>
+      </form>
+    </div>
+
+    <div class="form-card">
+      <h3>Existing Users</h3>
+      <ul>
+        {% for u in users %}
+          <li>{{ u.username }} {% if u.is_manager %}(manager){% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+{% endblock %}

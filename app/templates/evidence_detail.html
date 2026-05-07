@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard-page form-page evidence-detail-page">
+    <div class="page-header">
+      <div>
+        <p class="section-tag">Evidence</p>
+        <h2>{{ evidence.title }}</h2>
+      </div>
+      <a class="filter-reset" href="/">Back to dashboard</a>
+    </div>
+
+    <div class="detail-grid">
+      <div class="form-card">
+        <h3>Evidence Details</h3>
+        <div class="detail-list">
+          <div class="detail-row">
+            <span class="detail-label">Owner</span>
+            <span>{{ evidence.owner.name }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Outcomes</span>
+            <span>
+              {% for outcome in evidence.outcomes %}
+                {{ outcome.subcat_id }}{% if not loop.last %}, {% endif %}
+              {% endfor %}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Last Review</span>
+            <span>{{ evidence.last_reviewed_at.strftime('%Y-%m-%d') if evidence.last_reviewed_at else '—' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Next Review</span>
+            <span>
+              {% if next_review %}
+                {% set review_class = 'review-pill--safe' %}
+                {% if review_status == 'red' %}
+                  {% set review_class = 'review-pill--urgent' %}
+                {% elif review_status == 'yellow' %}
+                  {% set review_class = 'review-pill--warning' %}
+                {% endif %}
+                <span class="review-pill {{ review_class }}">{{ next_review.strftime('%Y-%m-%d') }}</span>
+              {% else %}
+                —
+              {% endif %}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Evidence File</span>
+            <span><a class="detail-link" href="{{ url_for('evidence_file', filename=evidence.file_path) }}">Open evidence</a></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h3>Update Last Reviewed</h3>
+        <p class="modal-copy">Change the review date using the confirmation popup.</p>
+        <button type="button" class="modal-trigger" data-modal-open="review-update-modal">Update Last Reviewed Date</button>
+      </div>
+
+      <div class="form-card danger-card">
+        <h3>Delete Evidence</h3>
+        <p>This permanently removes the evidence record and its uploaded file.</p>
+        <form action="/evidence-record/{{ evidence.evidence_id }}/delete" method="post" onsubmit="return confirm('Delete this evidence record? This cannot be undone.');">
+          <button class="danger-button" type="submit">Delete Evidence</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-shell" id="review-update-modal" hidden>
+      <div class="modal-backdrop" data-modal-close></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="review-update-title">
+        <div class="modal-header">
+          <h3 id="review-update-title">Update Last Reviewed Date</h3>
+          <button type="button" class="modal-close" aria-label="Close update popup" data-modal-close>&times;</button>
+        </div>
+        <form action="/evidence-record/{{ evidence.evidence_id }}/review" method="post" class="modal-form">
+          <label>
+            Review date<br>
+            <input type="date" name="last_reviewed_date" value="{{ evidence.last_reviewed_at.strftime('%Y-%m-%d') if evidence.last_reviewed_at else '' }}" required>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="filter-reset" data-modal-close>Cancel</button>
+            <button type="submit">Confirm Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const modal = document.getElementById("review-update-modal");
+      if (!modal) return;
+
+      const openButton = document.querySelector('[data-modal-open="review-update-modal"]');
+      const closeButtons = modal.querySelectorAll("[data-modal-close]");
+      const dateInput = modal.querySelector('input[name="last_reviewed_date"]');
+
+      const openModal = () => {
+        modal.hidden = false;
+        document.body.classList.add("modal-open");
+        if (dateInput) {
+          dateInput.focus();
+          dateInput.showPicker?.();
+        }
+      };
+
+      const closeModal = () => {
+        modal.hidden = true;
+        document.body.classList.remove("modal-open");
+      };
+
+      openButton?.addEventListener("click", openModal);
+      closeButtons.forEach((button) => button.addEventListener("click", closeModal));
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) {
+          closeModal();
+        }
+      });
+    })();
+  </script>
+{% endblock %}

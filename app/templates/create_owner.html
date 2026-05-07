@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard-page form-page">
+    <div class="page-header">
+      <div>
+        <p class="section-tag">Owners</p>
+        <h2>Create Owner</h2>
+      </div>
+    </div>
+
+    {% if error %}
+      <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    <div class="form-card">
+      <form action="/owners/new" method="post">
+        <label>
+          Name<br>
+          <input type="text" name="name" required>
+        </label>
+        <br><br>
+
+        <label>
+          Email<br>
+          <input type="email" name="email" required>
+        </label>
+        <br><br>
+
+        <label>
+          Job Role<br>
+          <input type="text" name="jobrole">
+        </label>
+        <br><br>
+
+        <button type="submit">Create owner</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}

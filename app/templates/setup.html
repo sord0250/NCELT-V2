@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Initial Setup</h2>
+  <p>Create the first manager account for this installation.</p>
+
+  {% if error %}
+    <p style="color: red;">{{ error }}</p>
+  {% endif %}
+
+  <form action="/setup" method="post">
+    <label>
+      Username<br>
+      <input type="text" name="username" required>
+    </label>
+    <br><br>
+
+    <label>
+      Password (min 8 chars)<br>
+      <input type="password" name="password" minlength="8" required>
+    </label>
+    <br><br>
+
+    <button type="submit">Create manager</button>
+  </form>
+{% endblock %}
