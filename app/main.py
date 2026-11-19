@@ -1,9 +1,16 @@
 import os
 import re
+import secrets
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List
+from urllib.parse import urlparse
 from uuid import uuid4
+
+from dotenv import load_dotenv
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
@@ -14,6 +21,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import crud, models
 from .db import SessionLocal, engine
+
+load_dotenv()
 
 # Ensure data folders exist
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -28,7 +37,13 @@ templates.env.globals["timedelta"] = timedelta
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-SESSION_SECRET = os.getenv("SESSION_SECRET_KEY", "dev-only-change-me")
+SESSION_SECRET = os.getenv("SESSION_SECRET_KEY")
+if SESSION_SECRET is None:
+    # No configured secret: use a random per-process key. Sessions reset on restart.
+    SESSION_SECRET = secrets.token_urlsafe(48)
+    print("WARNING: SESSION_SECRET_KEY is not set; using a random key. Sessions will not survive a restart.")
+elif len(SESSION_SECRET) < 32:
+    raise RuntimeError("SESSION_SECRET_KEY must be at least 32 characters long.")
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
@@ -83,6 +98,52 @@ def render_template(request: Request, name: str, context: dict, db: Session):
     return templates.TemplateResponse(name, merged_context)
 
 
+def safe_next_path(next_path: str | None) -> str:
+    """Only allow same-site relative paths as post-login redirect targets."""
+    if not next_path or not next_path.startswith("/") or next_path.startswith("//") or "\\" in next_path:
+        return "/"
+    parsed = urlparse(next_path)
+    if parsed.scheme or parsed.netloc:
+        return "/"
+    return next_path
+
+
+LOGIN_MAX_FAILURES = 5
+LOGIN_WINDOW_SECONDS = 15 * 60
+_login_failures: dict[str, deque] = defaultdict(deque)
+_login_failures_lock = threading.Lock()
+
+
+def _login_keys(request: Request, username: str) -> list[str]:
+    client_ip = request.client.host if request.client else "unknown"
+    return [f"ip:{client_ip}", f"user:{username.strip().lower()}"]
+
+
+def is_login_locked(keys: list[str]) -> bool:
+    cutoff = time.monotonic() - LOGIN_WINDOW_SECONDS
+    with _login_failures_lock:
+        for key in keys:
+            attempts = _login_failures[key]
+            while attempts and attempts[0] < cutoff:
+                attempts.popleft()
+            if len(attempts) >= LOGIN_MAX_FAILURES:
+                return True
+    return False
+
+
+def record_login_failure(keys: list[str]) -> None:
+    now = time.monotonic()
+    with _login_failures_lock:
+        for key in keys:
+            _login_failures[key].append(now)
+
+
+def clear_login_failures(keys: list[str]) -> None:
+    with _login_failures_lock:
+        for key in keys:
+            _login_failures.pop(key, None)
+
+
 def get_review_status(review_dt: datetime | None, lifecycle_length: int | None, today: date) -> str | None:
     if not review_dt or lifecycle_length is None:
         return None
@@ -119,13 +180,9 @@ def setup_handler(
     users = crud.list_users(db)
     if users:
         return RedirectResponse(url="/login", status_code=303)
-    if len(password) < 8:
-        return render_template(
-            request,
-            "setup.html",
-            {"error": "Password must be at least 8 characters."},
-            db,
-        )
+    password_error = crud.validate_password(password, username)
+    if password_error:
+        return render_template(request, "setup.html", {"error": password_error}, db)
     existing = crud.get_user_by_username(db, username)
     if existing:
         return render_template(request, "setup.html", {"error": "Username already exists."}, db)
@@ -144,7 +201,7 @@ def login_page(request: Request, db: Session = Depends(get_db), next_path: str =
     if current_user:
         return RedirectResponse(url="/", status_code=303)
 
-    return render_template(request, "login.html", {"next": next_path}, db)
+    return render_template(request, "login.html", {"next": safe_next_path(next_path)}, db)
 
 
 @app.post("/login")
@@ -155,16 +212,31 @@ def login_handler(
     next_path: str = Form("/"),
     db: Session = Depends(get_db),
 ):
+    next_path = safe_next_path(next_path)
+    keys = _login_keys(request, username)
+    if is_login_locked(keys):
+        response = render_template(
+            request,
+            "login.html",
+            {"error": "Too many failed login attempts. Please try again later.", "next": next_path},
+            db,
+        )
+        response.status_code = 429
+        return response
+
     user = crud.authenticate_user(db, username=username, password=password)
     if not user:
+        record_login_failure(keys)
         return render_template(
             request,
             "login.html",
             {"error": "Invalid username or password.", "next": next_path},
             db,
         )
+    clear_login_failures(keys)
+    request.session.clear()
     request.session["user_id"] = user.user_id
-    return RedirectResponse(url=next_path if next_path.startswith("/") else "/", status_code=303)
+    return RedirectResponse(url=next_path, status_code=303)
 
 
 @app.get("/logout")
@@ -386,12 +458,13 @@ def user_create_handler(
     if not manager.is_manager:
         raise HTTPException(status_code=403, detail="Manager role required")
 
-    if len(password) < 8:
+    password_error = crud.validate_password(password, username)
+    if password_error:
         users = crud.list_users(db)
         return render_template(
             request,
             "create_user.html",
-            {"error": "Password must be at least 8 characters.", "users": users},
+            {"error": password_error, "users": users},
             db,
         )
 
@@ -506,10 +579,18 @@ def secure_name(fname: str) -> str:
 
 
 @app.get("/evidence/{filename}", name="evidence_file")
-def evidence_file(filename: str):
+def evidence_file(request: Request, filename: str, db: Session = Depends(get_db)):
+    user = get_current_user_optional(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+
     safe = secure_name(filename)
     if not safe:
         raise HTTPException(status_code=404, detail="Not found")
+
+    # Only serve files that belong to an evidence record
+    if not db.query(models.Evidence).filter(models.Evidence.file_path == safe).first():
+        raise HTTPException(status_code=404, detail="File not found")
 
     full_path = os.path.join(EVIDENCE_DIR, safe)
     if not os.path.isfile(full_path):

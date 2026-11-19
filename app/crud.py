@@ -15,6 +15,38 @@ def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
 
+# Used to keep login timing the same whether or not the username exists
+_DUMMY_PASSWORD_HASH = pwd_context.hash("dummy-password-for-timing")
+
+MIN_PASSWORD_LENGTH = 8
+
+COMMON_PASSWORDS = {
+    "password", "password1", "password12", "password123", "password1234", "passw0rd",
+    "p@ssw0rd", "p@ssword", "12345678", "123456789", "1234567890", "0123456789",
+    "87654321", "11111111", "00000000", "12341234", "11223344", "1q2w3e4r",
+    "1qaz2wsx", "qwertyui", "qwerty12", "qwerty123", "qwertyuiop", "asdfghjk",
+    "asdfasdf", "zxcvbnm1", "abcd1234", "abc12345", "abcdefgh", "iloveyou",
+    "iloveyou1", "sunshine", "princess", "football", "baseball", "superman",
+    "starwars", "whatever", "trustno1", "letmein1", "welcome1", "welcome123",
+    "changeme", "changeme1", "changeme123", "admin123", "admin1234", "administrator",
+    "manager1", "manager123", "computer", "internet", "michelle", "jennifer",
+    "corvette", "mercedes", "dragon12", "monkey12", "master12", "shadow12",
+    "football1", "baseball1", "1password", "secret12", "secret123", "default1",
+    "letmein123", "qazwsxedc", "access14", "security", "security1",
+}
+
+
+def validate_password(password: str, username: str = "") -> str | None:
+    """Return an error message if the password is unacceptable, otherwise None."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
+    if password.lower() in COMMON_PASSWORDS:
+        return "That password is too common. Please choose a different one."
+    if username and password.lower() == username.strip().lower():
+        return "Password must not be the same as the username."
+    return None
+
+
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
 
@@ -41,9 +73,12 @@ def create_user(db: Session, username: str, password: str, is_manager: bool = Fa
 
 def authenticate_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username.strip())
-    if not user or not user.is_active:
+    if not user:
+        verify_password(password, _DUMMY_PASSWORD_HASH)
         return None
     if not verify_password(password, user.password_hash):
+        return None
+    if not user.is_active:
         return None
     return user
 

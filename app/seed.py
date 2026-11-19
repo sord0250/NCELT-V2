@@ -1,18 +1,10 @@
 from .db import SessionLocal, engine
-from .models import Base, Owner, Outcome, User
-from .crud import hash_password
+from .models import Base, Owner, Outcome
 
 def run():
+    # User accounts are not seeded; create the first manager through /setup.
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
-    if db.query(User).count() == 0:
-        db.add(
-            User(
-                username="manager",
-                password_hash=hash_password("changeme123"),
-                is_manager=True,
-            )
-        )
     if db.query(Owner).count() == 0:
         db.add_all([
             Owner(name="Security Team", 

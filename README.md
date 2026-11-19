@@ -78,7 +78,17 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 3. Start the local server
+### 3. Set a session secret
+
+Create a `.env` file in the project root (it is ignored by git) with a long random value:
+
+```powershell
+python -c "import secrets; open('.env', 'a').write('SESSION_SECRET_KEY=' + secrets.token_urlsafe(48) + '\n')"
+```
+
+If `SESSION_SECRET_KEY` is not set, the app generates a random key at startup, so logins will not survive a server restart. Values shorter than 32 characters are rejected.
+
+### 4. Start the local server
 
 ```powershell
 python -m uvicorn app.main:app --reload
@@ -90,7 +100,7 @@ Then open:
 http://127.0.0.1:8000
 ```
 
-### 4. Create the first manager account
+### 5. Create the first manager account
 
 On the first run, go to:
 
@@ -100,7 +110,7 @@ http://127.0.0.1:8000/setup
 
 Create the initial manager account. After that, the app will redirect users to the login page.
 
-### 5. Load starter framework data
+### 6. Load starter framework data
 
 To load starter owners and NIST CSF 2.0 outcomes, run:
 
@@ -171,5 +181,5 @@ NCELT/
 ## Notes
 
 - This app is intended for local use and learning/prototyping.
-- For production use, replace the development session secret, enable HTTPS-only cookies, use a production database, add backup/retention controls, and review access control requirements.
+- For production use, set a strong `SESSION_SECRET_KEY`, enable HTTPS-only cookies, use a production database, add backup/retention controls, and review access control requirements.
 - NIST CSF 2.0 uses functions, categories, and subcategories/outcomes. This app uses those outcomes as the framework mapping layer for evidence.
